@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>무한의 계단 - 우주 여행</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        canvas {
+            display: block;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+            z-index: 30;
+        }
+        .score-text {
+            font-size: 4rem;
+            color: #fff;
+            font-weight: 900;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            letter-spacing: -2px;
+        }
+        .best-score-badge {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+            padding: 5px 15px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 40;
+        }
+        .gold-counter {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 40;
+        }
+        .gold-box {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 16px;
+            border-radius: 50px;
+            border: 2px solid rgba(255, 211, 48, 0.5);
+            backdrop-filter: blur(5px);
+            color: #ffda79;
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+        .gold-icon {
+            width: 20px;
+            height: 20px;
+            background: #f9ca24;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid #f0932b;
+            box-shadow: 0 0 5px #f9ca24;
+        }
+        .gold-msg {
+            font-size: 14px;
+            color: #f1c40f;
+            font-weight: bold;
+            margin-top: 5px;
+            margin-left: 10px;
+            animation: fadeUp 1s ease-out forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(10px); }
+            20% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        .timer-bar-container {
+            width: 70%;
+            height: 16px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+            margin: 5px auto;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.3);
+            backdrop-filter: blur(5px);
+        }
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff4757, #ff6b81);
+            box-shadow: 0 0 15px #ff4757;
+            transition: width 0.05s linear;
+        }
+        .controls {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 0 20px;
+            pointer-events: auto;
+            z-index: 50;
+        }
+        .btn {
+            width: 130px;
+            height: 130px;
+            border-radius: 35px;
+            border: none;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 8px 0 #bbb, 0 15px 30px rgba(0,0,0,0.4);
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            position: relative;
+        }
+        .btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 2px 0 #bbb, 0 5px 15px rgba(0,0,0,0.4);
+        }
+        .btn-climb { color: #05c46b; }
+        .btn-turn { color: #0fbcf9; }
+
+        .developer-tag {
+            position: absolute;
+            right: 15px;
+            bottom: 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 400;
+            pointer-events: none;
+            z-index: 10;
+            letter-spacing: 0.5px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.98) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .hidden { display: none !important; }
+        #loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+        }
+        
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 360px;
+        }
+        .char-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .char-card.selected {
+            border-color: #0fbcf9;
+            background: rgba(15, 188, 249, 0.2);
+            box-shadow: 0 0 15px rgba(15, 188, 249, 0.4);
+        }
+        .char-card.locked {
+            filter: grayscale(0.8);
+            opacity: 0.7;
+        }
+        .lock-icon {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.8rem;
+        }
+        
+        .elevator-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 15px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s;
+            width: 100px;
+            cursor: pointer;
+        }
+        .elevator-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+        .elevator-btn.owned {
+            border-color: #05c46b;
+            background: rgba(5, 196, 107, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">데이터 불러오는 중...</div>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="developer-tag">개발자 : 경일고 김명섭</div>
+
+    <div class="gold-counter">
+        <div class="gold-box">
+            <div class="gold-icon"></div>
+            <span id="gold-total">0</span>
+        </div>
+        <div id="gold-msg-container"></div>
+    </div>
+
+    <div class="best-score-badge">
+        BEST: <span id="best-score-top">0</span>
+    </div>
+
+    <div class="ui-layer">
+        <div class="score-text" id="score">0</div>
+        <div class="timer-bar-container">
+            <div id="timer-bar"></div>
+        </div>
+    </div>
+
+    <div id="overlay" class="hidden">
+        <h1 class="text-4xl font-black mb-1 tracking-tighter">무한의 계단</h1>
+        <p class="text-gray-400 text-sm mb-2">최고 기록: <span id="best-score-main" class="text-yellow-400 font-bold">0</span></p>
+
+        <div class="character-grid" id="character-grid"></div>
+
+        <div class="flex gap-3 mb-6">
+            <button id="buy-silver" class="elevator-btn border-gray-400">
+                <span class="text-[10px] font-bold text-gray-400">실버 엘베</span>
+                <span class="text-xl">🥈</span>
+                <span id="price-silver" class="text-[10px] text-yellow-400">50 G</span>
+            </button>
+            <button id="buy-gold" class="elevator-btn border-yellow-500">
+                <span class="text-[10px] font-bold text-yellow-200">골드 엘베</span>
+                <span class="text-xl">🥇</span>
+                <span id="price-gold" class="text-[10px] text-yellow-400">100 G</span>
+            </button>
+        </div>
+
+        <button id="start-btn" class="bg-white text-black px-12 py-4 rounded-2xl font-black text-2xl shadow-2xl hover:scale-105 transition active:scale-95">게임 시작</button>
+        
+        <div id="game-over-info" class="hidden mt-6 text-center">
+            <p class="text-2xl text-red-500 font-black mb-1">GAME OVER</p>
+            <p id="final-score" class="text-lg font-bold text-white"></p>
+            <p id="new-record-msg" class="text-yellow-400 font-black hidden animate-bounce mt-2 text-xl">NEW RECORD! 🎉</p>
+            <p class="text-sm text-gray-400 mt-2">잠시 후 다시 시작할 수 있습니다.</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-turn" id="btn-turn">
+            <span class="text-4xl mb-1">↩</span>
+            <span class="text-xs">방향전환 [←]</span>
+        </button>
+        <button class="btn btn-climb" id="btn-climb">
+            <span class="text-4xl mb-1">▲</span>
+            <span class="text-xs">오르기 [→]</span>
+        </button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'infinite-stairs-v2';
+
+    const CHARACTER_TYPES = {
+        'default': { name: '모험가', price: 0, color: '#3c6382', head: '#ffdd59', emoji: '🧑‍🚀' },
+        'rabbit': { name: '달토끼', price: 100, color: '#f5f6fa', head: '#f5f6fa', emoji: '🐰' },
+        'robot': { name: '로봇', price: 250, color: '#95afc0', head: '#7ed6df', emoji: '🤖' },
+        'alien': { name: '외계인', price: 500, color: '#6ab04c', head: '#badc58', emoji: '👽' }
+    };
+
+    const ELEVATORS = {
+        'silver': { name: '실버', price: 50, scoreBoost: 50 },
+        'gold': { name: '골드', price: 100, scoreBoost: 100 }
+    };
+
+    let currentUser = null;
+    let totalSavedGold = 0;
+    let bestScore = 0;
+    let unlockedChars = ['default'];
+    let selectedCharId = 'default';
+    let ownedElevators = [];
+
+    const initAuth = async () => {
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            await loadUserData();
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('overlay').classList.remove('hidden');
+            renderShop();
+        }
+    });
+
+    const loadUserData = async () => {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const data = userDoc.data();
+            totalSavedGold = data.totalGold || 0;
+            bestScore = data.bestScore || 0;
+            unlockedChars = data.unlockedChars || ['default'];
+            selectedCharId = data.selectedCharId || 'default';
+            ownedElevators = data.ownedElevators || [];
+        } else {
+            await setDoc(userDocRef, { totalGold: 0, bestScore: 0, unlockedChars: ['default'], selectedCharId: 'default', ownedElevators: [] });
+        }
+        updateUI();
+    };
+
+    const updateUI = () => {
+        document.getElementById('gold-total').innerText = totalSavedGold.toLocaleString();
+        document.getElementById('best-score-top').innerText = bestScore.toLocaleString();
+        document.getElementById('best-score-main').innerText = bestScore.toLocaleString();
+        
+        ['silver', 'gold'].forEach(type => {
+            const btn = document.getElementById(`buy-${type}`);
+            const priceTag = document.getElementById(`price-${type}`);
+            const isOwned = ownedElevators.includes(type);
+            
+            if (isOwned) {
+                btn.classList.add('owned');
+                btn.classList.remove('disabled');
+                priceTag.innerText = '구매완료';
+                priceTag.classList.add('text-green-400');
+            } else {
+                btn.classList.toggle('disabled', totalSavedGold < ELEVATORS[type].price);
+                priceTag.innerText = `${ELEVATORS[type].price} G`;
+            }
+        });
+    };
+
+    const renderShop = () => {
+        const grid = document.getElementById('character-grid');
+        grid.innerHTML = '';
+        Object.entries(CHARACTER_TYPES).forEach(([id, info]) => {
+            const isUnlocked = unlockedChars.includes(id);
+            const isSelected = selectedCharId === id;
+            
+            const card = document.createElement('div');
+            card.className = `char-card ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+            card.innerHTML = `
+                <span class="text-3xl mb-1">${info.emoji}</span>
+                <span class="text-xs font-bold">${info.name}</span>
+                <span class="text-[10px] mt-1 text-yellow-400 font-black">${isUnlocked ? (isSelected ? '선택됨' : '선택하기') : info.price + ' G'}</span>
+                ${!isUnlocked ? '<span class="lock-icon">🔒</span>' : ''}
+            `;
+            
+            card.onclick = () => handleCharSelect(id);
+            grid.appendChild(card);
+        });
+    };
+
+    const handleCharSelect = async (id) => {
+        if (!currentUser) return;
+        const info = CHARACTER_TYPES[id];
+        const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+        
+        if (unlockedChars.includes(id)) {
+            selectedCharId = id;
+            await updateDoc(userDocRef, { selectedCharId: id });
+        } else if (totalSavedGold >= info.price) {
+            totalSavedGold -= info.price;
+            unlockedChars.push(id);
+            selectedCharId = id;
+            await updateDoc(userDocRef, { 
+                totalGold: totalSavedGold, 
+                unlockedChars: unlockedChars,
+                selectedCharId: id
+            });
+        }
+        updateUI();
+        renderShop();
+    };
+
+    const handleElevatorBuy = async (type) => {
+        if (!currentUser || ownedElevators.includes(type)) return;
+        const info = ELEVATORS[type];
+        if (totalSavedGold >= info.price) {
+            totalSavedGold -= info.price;
+            ownedElevators.push(type);
+            const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+            await updateDoc(userDocRef, { 
+                totalGold: totalSavedGold, 
+                ownedElevators: ownedElevators 
+            });
+            updateUI();
+        }
+    };
+
+    document.getElementById('buy-silver').onclick = () => handleElevatorBuy('silver');
+    document.getElementById('buy-gold').onclick = () => handleElevatorBuy('gold');
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const timerBar = document.getElementById('timer-bar');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('start-btn');
+    const goldMsgContainer = document.getElementById('gold-msg-container');
+
+    let gameState = 'START';
+    let score = 0;
+    let sessionGold = 0;
+    let timeLeft = 100;
+    const MAX_TIME = 100;
+    
+    let steps = [];
+    let character = { x: 0, y: 0, direction: 1, jumpAnim: 0 };
+    let camX = 0, camY = 0;
+    let stars = [];
+    let clouds = [];
+    let planets = [];
+
+    const STEP_WIDTH = 70;
+    const CHAR_HEIGHT = 55;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    function showGoldMsg() {
+        const msg = document.createElement('div');
+        msg.className = 'gold-msg';
+        msg.innerText = '+1 Gold!';
+        goldMsgContainer.appendChild(msg);
+        setTimeout(() => msg.remove(), 1000);
+    }
+
+    function initGame() {
+        steps = [{ x: 0, y: 0, item: null }];
+        character.direction = 1; 
+        steps.push({ x: STEP_WIDTH, y: -35, item: null, collected: false });
+        
+        for (let i = 2; i < 200; i++) generateNextStep();
+        
+        let boost = 0;
+        if (ownedElevators.includes('gold')) boost = 100;
+        else if (ownedElevators.includes('silver')) boost = 50;
+
+        if (boost > 0) {
+            score = boost;
+            scoreEl.innerText = score;
+            for(let j=0; j<boost; j++) {
+                const next = steps[j+1];
+                character.x = next.x;
+                character.y = next.y - CHAR_HEIGHT;
+            }
+        } else {
+            character.x = steps[0].x;
+            character.y = steps[0].y - CHAR_HEIGHT;
+        }
+
+        camX = character.x; camY = character.y;
+        timeLeft = MAX_TIME;
+        
+        // 별 (우주 배경)
+        stars = Array.from({length: 150}, () => ({
+            x: Math.random() * 4000 - 2000, 
+            y: Math.random() * -30000 - 1000,
+            size: Math.random() * 2.5, 
+            opacity: Math.random(),
+            twinkle: Math.random() * 0.02
+        }));
+
+        // 구름 (지구 배경용)
+        clouds = Array.from({length: 30}, () => ({
+            x: Math.random() * 2000 - 1000,
+            y: Math.random() * -3000,
+            width: 100 + Math.random() * 200,
+            height: 40 + Math.random() * 60,
+            opacity: 0.3 + Math.random() * 0.5
+        }));
+
+        // 행성 (우주 진입 시)
+        planets = [
+            { x: 300, y: -8000, size: 100, color: '#ff7f50', name: '화성' },
+            { x: -400, y: -15000, size: 250, color: '#f4a460', name: '목성' },
+            { x: 500, y: -22000, size: 180, color: '#87ceeb', name: '천왕성' }
+        ];
+    }
+
+    function generateNextStep() {
+        const last = steps[steps.length - 1];
+        const dir = Math.random() > 0.5 ? 1 : -1;
+        const item = Math.random() < 0.1 ? 'gold' : null;
+        steps.push({ x: last.x + (dir * STEP_WIDTH), y: last.y - 35, item, collected: false });
+    }
+
+    function drawCharacter() {
+        const charData = CHARACTER_TYPES[selectedCharId];
+        ctx.save();
+        const jumpY = Math.sin(character.jumpAnim) * 15;
+        ctx.translate(character.x, character.y - jumpY);
+        if (character.direction === -1) ctx.scale(-1, 1);
+
+        ctx.fillStyle = charData.color;
+        ctx.fillRect(-12, 12, 24, 25);
+        ctx.fillStyle = charData.head;
+        ctx.fillRect(-10, -8, 20, 22);
+        
+        ctx.fillStyle = "#000";
+        ctx.fillRect(3, 0, 3, 3);
+        ctx.restore();
+    }
+
+    function drawBackground() {
+        const alt = score;
+        const h = canvas.height;
+        
+        // 배경색 그라데이션 전환 (지구 -> 우주)
+        let colorTop, colorBottom;
+        
+        if (alt < 100) {
+            // 낮 (지구)
+            colorTop = '#4facfe';
+            colorBottom = '#00f2fe';
+        } else if (alt < 300) {
+            // 대기권 진입 (어두운 파랑)
+            const ratio = (alt - 100) / 200;
+            colorTop = lerpColor('#4facfe', '#1e3c72', ratio);
+            colorBottom = lerpColor('#00f2fe', '#4facfe', ratio);
+        } else if (alt < 600) {
+            // 우주 경계
+            const ratio = (alt - 300) / 300;
+            colorTop = lerpColor('#1e3c72', '#000000', ratio);
+            colorBottom = lerpColor('#4facfe', '#0f0c29', ratio);
+        } else {
+            // 심우주
+            colorTop = '#000000';
+            colorBottom = '#0f0c29';
+        }
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, colorTop);
+        grad.addColorStop(1, colorBottom);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, h);
+
+        ctx.save();
+        // 시차 효과 (Parallax)를 위한 변환
+        ctx.translate(canvas.width / 2 - camX * 0.1, canvas.height * 0.7 - camY * 0.1);
+
+        // 구름 그리기 (지구 고도일 때만 선명하게)
+        if (alt < 500) {
+            const cloudAlpha = Math.max(0, 1 - alt / 400);
+            ctx.globalAlpha = cloudAlpha;
+            clouds.forEach(c => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${c.opacity})`;
+                ctx.beginPath();
+                ctx.ellipse(c.x, c.y, c.width, c.height, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // 별 그리기 (우주 고도일수록 선명하게)
+        const starAlpha = Math.min(1, alt / 200);
+        ctx.globalAlpha = starAlpha;
+        stars.forEach(s => {
+            s.opacity += s.twinkle;
+            if (s.opacity > 1 || s.opacity < 0.2) s.twinkle *= -1;
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 행성 그리기
+        planets.forEach(p => {
+            if (Math.abs(p.y - camY * 0.1) < 2000) {
+                // 본체
+                const pGrad = ctx.createRadialGradient(p.x - p.size*0.3, p.y - p.size*0.3, p.size*0.1, p.x, p.y, p.size);
+                pGrad.addColorStop(0, p.color);
+                pGrad.addColorStop(1, '#000');
+                ctx.fillStyle = pGrad;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 이름 표시
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = 'bold 20px Pretendard';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, p.x, p.y + p.size + 30);
+            }
+        });
+        
+        ctx.restore();
+    }
+
+    // 색상 보간 함수
+    function lerpColor(a, b, amount) {
+        const ah = parseInt(a.replace(/#/g, ''), 16),
+            ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
+            bh = parseInt(b.replace(/#/g, ''), 16),
+            br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff,
+            rr = ar + amount * (br - ar),
+            rg = ag + amount * (bg - ag),
+            rb = ab + amount * (bb - ab);
+        return '#' + ((1 << 24) + (Math.round(rr) << 16) + (Math.round(rg) << 8) + Math.round(rb)).toString(16).slice(1);
+    }
+
+    function draw() {
+        camX += (character.x - camX) * 0.15;
+        camY += (character.y - camY) * 0.15;
+        drawBackground();
+        
+        ctx.save();
+        ctx.translate(canvas.width / 2 - camX, canvas.height * 0.7 - camY);
+        
+        steps.forEach((s, i) => {
+            if (Math.abs(s.y - camY) < canvas.height) {
+                // 고도에 따른 계단 색상 변화
+                if (i < 150) ctx.fillStyle = "#fff"; // 구름 계단 느낌
+                else if (i < 400) ctx.fillStyle = "#0fbcf9"; // 대기권 느낌
+                else if (i < 800) ctx.fillStyle = "#feca57"; // 운석 느낌
+                else ctx.fillStyle = "#5f27cd"; // 심우주 느낌
+                
+                ctx.fillRect(s.x - 30, s.y, 60, 15);
+                
+                if (s.item === 'gold' && !s.collected) {
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.beginPath(); ctx.arc(s.x, s.y - 20, 8, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                }
+            }
+        });
+
+        character.jumpAnim *= 0.8;
+        drawCharacter();
+        ctx.restore();
+    }
+
+    function handleClimb() {
+        if (gameState !== 'PLAYING') return;
+        const next = steps[score + 1];
+        const expectedX = steps[score].x + (character.direction * STEP_WIDTH);
+        
+        if (Math.abs(next.x - expectedX) < 10) {
+            score++; scoreEl.innerText = score;
+            character.x = next.x; character.y = next.y - CHAR_HEIGHT;
+            character.jumpAnim = Math.PI;
+            
+            if (next.item === 'gold' && !next.collected) {
+                next.collected = true;
+                sessionGold++;
+                totalSavedGold++;
+                document.getElementById('gold-total').innerText = totalSavedGold.toLocaleString();
+                showGoldMsg();
+            }
+            
+            timeLeft = Math.min(MAX_TIME, timeLeft + 3.5);
+            if (steps.length - score < 50) generateNextStep();
+        } else { gameOver(); }
+    }
+
+    function handleTurn() {
+        if (gameState !== 'PLAYING') return;
+        character.direction *= -1;
+        handleClimb();
+    }
+
+    async function gameOver() {
+        if (gameState === 'GAMEOVER') return;
+        gameState = 'GAMEOVER';
+        
+        let isNewRecord = false;
+        if (score > bestScore) {
+            bestScore = score;
+            isNewRecord = true;
+        }
+
+        document.getElementById('final-score').innerText = `점수: ${score} | 획득 골드: ${sessionGold}`;
+        if (isNewRecord) {
+            document.getElementById('new-record-msg').classList.remove('hidden');
+        } else {
+            document.getElementById('new-record-msg').classList.add('hidden');
+        }
+        
+        document.getElementById('game-over-info').classList.remove('hidden');
+        overlay.classList.remove('hidden');
+        
+        if (currentUser) {
+            const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+            await updateDoc(userDocRef, { 
+                totalGold: totalSavedGold,
+                bestScore: bestScore 
+            });
+        }
+        
+        setTimeout(() => {
+            document.getElementById('game-over-info').classList.add('hidden');
+            updateUI();
+            renderShop();
+        }, 3000);
+    }
+
+    function update() {
+        if (gameState === 'PLAYING') {
+            const difficultyFactor = 0.15 + (Math.sqrt(score) * 0.015);
+            timeLeft -= Math.min(difficultyFactor, 0.8); 
+            
+            timerBar.style.width = `${Math.max(0, timeLeft)}%`;
+            if (timeLeft <= 0) gameOver();
+        }
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    startBtn.onclick = () => {
+        score = 0; sessionGold = 0; scoreEl.innerText = '0';
+        gameState = 'PLAYING';
+        overlay.classList.add('hidden');
+        initGame();
+    };
+
+    window.onkeydown = (e) => {
+        if (gameState !== 'PLAYING') return;
+        if (e.key === 'ArrowRight') handleClimb();
+        if (e.key === 'ArrowLeft') handleTurn();
+    };
+
+    document.getElementById('btn-climb').onclick = handleClimb;
+    document.getElementById('btn-turn').onclick = handleTurn;
+
+    window.onresize = resize;
+    resize();
+    initAuth();
+    update();
+</script>
+</body>
+</html>
